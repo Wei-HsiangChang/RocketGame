@@ -1,0 +1,219 @@
+<html>
+    <head>
+        <title>rocket game</title>
+        <script src="jquery-3.5.1.min.js"></script>
+        <script>
+            // get random Int
+            function getRandomInt(min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+            // 當DOM讀取完畢執行
+            $(function(){
+                // 變數寫法增加效能
+                var $body=$("body"),
+                    $stage=$("#stage"),
+                    $player=$("#player"),
+                    $score=$("#score"),
+                    score=0,
+                    score_add=1,
+                    enemy_fallspeed=3,
+                    enemy_max_fallspeed=11,
+                    enemy_wave=0,
+                    enemy_wave_gap=300,
+                    hit_r=30,
+                    fall_loop,
+                    speedup,
+                    aud = document.getElementById("myAudio");
+                                
+                // move left
+                function left_click_action(){               
+                    var x = parseInt($player.css("left"));
+                    if(x > 10) 
+                        $player.css("left", x-100+"px");  
+                };
+                                                      
+                //move right
+                function right_click_action(e){
+                    e.preventDefault();       
+                    var x = parseInt($player.css("left"));
+                    if(x < 210)
+                        $player.css("left", x+100+"px");                      
+                };
+                //add sound                
+                 function sound_action(){                  
+                    aud.play();
+                    aud.muted=false; 
+                 };
+                
+                // Initial game
+                function initGame(){
+                    score=0,
+                    score_add=1,
+                    enemy_fallspeed=3,
+                    enemy_wave=0,
+                    // player initial position
+                    $player.css("left", ($stage.width()-$player.width())/2+"px");
+                    $player.css("top", $stage.height()-$player.height());
+                    // score initial position
+                    $score.css("left", ($stage.width()-$score.width()-5+"px"));
+                    $score.css("top","5px");
+                    //create enemy
+                    create_enemy();
+                    //reset clock
+                    speedup = setInterval(speed_func,1000);
+                    fall_loop = setInterval(loop_func,1000/60);
+                    //player control
+                    $body.click(left_click_action);  
+                    $body.contextmenu(right_click_action);
+                    //init sound
+                    $body.mousedown(sound_action);
+                }
+                initGame();
+                //create obstacle
+                function create_enemy(){
+                    var enemy_pos=[10,110,210];
+                    for(i=0; i<2; i++){
+                        $stage.append("<div class='sprite enemy'></div>");//increase enemies
+                        var $enemy = $stage.find(".enemy:last");
+                        $enemy.data("wave",enemy_wave);
+                        var random_index = getRandomInt(0,enemy_pos.length-1);
+                        var enemy_x = enemy_pos.splice(random_index,1)[0];//enemy random initail-position
+                        $enemy.css("left", enemy_x+"px");// add attribute to an enemy
+                        $enemy.css("top", -($enemy.height())+"px");
+                    }
+                };
+                
+                //End game
+                function endgame(){
+                    //lock player and mute sound
+                    $body.unbind("click"); 
+                    $body.unbind("contextmenu");
+                    $body.unbind("mousedown");
+                    //mute sound
+                    aud.muted=true;
+                    //clear clock
+                    clearInterval(fall_loop);
+                    clearInterval(speedup);
+                    //Showing image of retry
+                    $stage.append("<div id='gameover'>RETRY</div>");
+                    $gameover=$("#gameover");
+                    $gameover.css({
+                        "background":"black",
+                        "opacity":"0.5",
+                        "width":"100%",
+                        "height":"100%",
+                        "position":"relative",
+                        "color":"white",
+                        "line-height":"500px",
+                        "text-align":"center",
+                        "font-size":"35px",
+                    });
+                    $gameover.mousedown(function(){
+                        $gameover.unbind("mousedown");
+                        //clear endgame page
+                        $gameover.remove();
+                        //clear Enemies
+                        $stage.find(".enemy").remove();
+                        //reload sound
+                        aud.load();
+                        sound_action();
+                        //init game
+                        initGame();                         
+                    });
+                }
+                
+                //deal with falldown(interval and remove from screen),collision mechanism and add score
+                function loop_func(){
+                    $stage.find(".enemy").each(function(){
+                        var enemy_y = parseInt($(this).css("top"));
+                        //create enemies according to distance
+                        if(enemy_y>enemy_wave_gap && $(this).data("wave")==enemy_wave){
+                            enemy_wave++;
+                            create_enemy();
+                        }
+                        //coordinate of the center
+                        var px = parseInt($player.css("left",))+$player.width()/2;
+                        var py = parseInt($player.css("top",))+$player.height()/2;
+                        var ex = parseInt($(this).css("left",))+$(this).width()/2;
+                        var ey = parseInt($(this).css("top",))+$(this).height()/2;
+                        var pe_distance = Math.sqrt(Math.pow(px-ex,2)+Math.pow(py-ey,2));
+                        //collision mechanism
+                        if(hit_r>pe_distance){
+                            endgame();        
+                        }
+                        
+                        //remove enenmy
+                        if(enemy_y>$stage.height()){
+                            $(this).remove();
+                            return;
+                        }
+                        $(this).css("top",enemy_y+enemy_fallspeed+"px");
+                        //score increase
+                        $score.html(score);
+                        score+=score_add;
+                        score=parseInt(score);
+                    });    
+                }
+
+                //speedup/sec
+                function speed_func(){
+                    if(enemy_fallspeed>=enemy_max_fallspeed){
+                        enemy_fallspeed=11;
+                        clearInterval(speedup);
+                    }
+                    enemy_fallspeed+=0.1;
+                    score_add+=1.1;
+                }            
+            })
+        </script>
+        <style>
+            body{
+                text-align:center;
+            }
+            #stage{
+                display:inline-block;
+                position:relative;
+                background:url(image/space.jpg);
+                background-size: cover;
+                text-align:left; 
+                top:50px;
+                width:300px;
+                height:500px; 
+                overflow:hidden;
+                
+            }
+            .sprite{
+                display:inline-block;
+                position:absolute;
+                width:80px;
+                height:80px;
+            }
+            .player{
+                background:url(image/player.png);
+                background-size: cover;
+            }
+            .enemy{
+                background:url(image/enemy.png);
+                background-size: cover;
+            }
+            .score{
+                color:white;
+                font-size:20px;
+                font-weight: bolder;
+                width:100%;
+                height:auto;
+                text-align:right;
+                z-index:999;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="stage">
+            <div id="score" class="sprite score">00000</div>
+            <div id="player" class="sprite player"></div>
+            <audio id="myAudio" src="DISS.mp3" muted></audio>
+        </div>    
+    </body>
+</html>
